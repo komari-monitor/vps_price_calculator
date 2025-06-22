@@ -45,7 +45,7 @@
 ```bash
 docker run -d --name=jsq -p 8089:80 bobby567/calculator:latest
 ```
-
+如果出现异常，请先尝试执行 ``docker pull bobby567/calculator`` 或更换端口
 
 ### ☁️ 其他方式部署
 
