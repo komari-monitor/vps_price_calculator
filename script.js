@@ -34,6 +34,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // 添加事件监听器 - 适配Material Web组件
     document.getElementById('currency').addEventListener('change', fetchExchangeRate);
     document.getElementById('calculateBtn').addEventListener('click', calculateAndSend);
+    document.getElementById('copyLinkBtn').addEventListener('click', copyLink);
     document.getElementById('screenshotBtn').addEventListener('click', captureAndUpload);
 
     // 等待Material Web组件加载完成后添加事件监听器
@@ -60,7 +61,45 @@ document.addEventListener('DOMContentLoaded', function() {
             closeSettingsSidebar();
         }
     });
+
+    // 从URL参数填充表单并计算
+    populateFormFromUrlAndCalc();
 });
+
+function populateFormFromUrlAndCalc() {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.toString() === '') {
+        return; // No params, use default behavior
+    }
+
+    if (urlParams.has('currency')) {
+        document.getElementById('currency').value = urlParams.get('currency');
+    }
+    if (urlParams.has('price')) {
+        document.getElementById('amount').value = urlParams.get('price');
+    }
+    if (urlParams.has('cycle')) {
+        document.getElementById('cycle').value = urlParams.get('cycle');
+    }
+    if (urlParams.has('due')) {
+        const expiryDate = urlParams.get('due');
+        if (expiryDate.match(/^\d{8}$/)) {
+            const formattedDate = `${expiryDate.substring(0, 4)}-${expiryDate.substring(4, 6)}-${expiryDate.substring(6, 8)}`;
+            document.getElementById('expiryDate').value = formattedDate;
+        }
+    }
+    
+    const fetchPromise = fetchExchangeRate(true);
+
+    fetchPromise.then(() => {
+        if (urlParams.has('rate')) {
+            document.getElementById('customRate').value = urlParams.get('rate');
+        }
+        setTimeout(() => {
+             calculateAndSend();
+        }, 100);
+    });
+}
 
 // 主题切换功能
 function initTheme() {
@@ -190,9 +229,11 @@ function updateRemainingDays() {
  * 
  * 该函数用于从API获取最新汇率并计算与人民币的兑换比率
  */
-function fetchExchangeRate() {
+function fetchExchangeRate(isFromUrlLoad = false) {
   const currency = document.getElementById('currency').value;
-  fetch(`https://777100.xyz/`)
+  const customRateField = document.getElementById('customRate');
+  
+  return fetch(`https://777100.xyz/`)
   .then(response => {
     if (!response.ok) {
       throw new Error(`HTTP error! 状态: ${response.status}`);
@@ -216,8 +257,12 @@ function fetchExchangeRate() {
     const formattedDate = `${year}/${month}/${day} ${hours}:${minutes}`;
     
     document.getElementById('exchangeRate').value = rate.toFixed(3);
-    document.getElementById('customRate').value = rate.toFixed(3);
-    // 更新Material Web组件的supporting-text
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    if (!isFromUrlLoad || !urlParams.has('rate')) {
+        customRateField.value = rate.toFixed(3);
+    }
+
     const exchangeRateField = document.getElementById('exchangeRate');
     exchangeRateField.setAttribute('supporting-text', `更新时间: ${formattedDate}`);
   })
@@ -798,4 +843,22 @@ function getCycleText(cycle) {
         case 60: return '五年';
         default: return '未知周期';
     }
+}
+
+function copyLink() {
+    const currency = document.getElementById('currency').value;
+    const price = document.getElementById('amount').value;
+    const cycle = document.getElementById('cycle').value;
+    const expiryDate = document.getElementById('expiryDate').value;
+
+    const params = new URLSearchParams();
+    if (currency) params.set('currency', currency);
+    if (price) params.set('price', price);
+    if (cycle) params.set('cycle', cycle);
+    if (expiryDate) params.set('due', expiryDate.replace(/-/g, ''));
+
+    const url = new URL(window.location.href);
+    url.search = params.toString();
+
+    copyToClipboard(url.toString());
 }
