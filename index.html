@@ -11,7 +11,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
     
-    <!-- 渐入 防止FOUC -->
     <style>
         :root {
             --md-sys-color-primary: #6750a4;
@@ -126,14 +125,15 @@
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/zh.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/zh.js"defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"defer></script>
 
     <link rel="stylesheet" href="./styles.css" data-version>
 </head>
 <body>
+  <script>document.body.classList.add('is-loading');</script>
     <div class="container">
         <header>
             <div class="theme-toggle">
@@ -367,11 +367,7 @@
                     <div class="project-links">
                         <a href="https://github.com/realnovicedev/vps_calculator_docker" target="_blank" class="md-typescale-body-medium">
                             <i class="fab fa-github"></i>
-                            本项目
-                        </a>
-                        <a href="https://github.com/Tomzhao1016/vps_surplus_value" target="_blank" class="md-typescale-body-medium">
-                            <i class="fas fa-code-branch"></i>
-                            原项目
+                            项目链接
                         </a>
                     </div>
                 </div>

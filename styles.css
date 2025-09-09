@@ -1232,3 +1232,14 @@ md-icon-button i {
     top: 1.5rem;
     right: 4.5rem;
 }
+
+body.is-loading {
+    opacity: 0;
+    visibility: hidden;
+    transition: none; 
+    animation: none;
+}
+
+body {
+    transition: opacity 0.2s ease-out;
+}

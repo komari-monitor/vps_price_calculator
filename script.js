@@ -20,46 +20,65 @@ const imgHost = {
 };
 
 document.addEventListener('DOMContentLoaded', function() {
-    // 初始化主题
-    initTheme();
     
-    // 初始化日期选择器
-    flatpickr.localize(flatpickr.l10ns.zh);
-    initializeDatePickers();
-    
-    // 初始化其他功能
-    fetchExchangeRate();
-    setDefaultTransactionDate();
-    
-    // 添加事件监听器 - 适配Material Web组件
-    document.getElementById('currency').addEventListener('change', fetchExchangeRate);
-    document.getElementById('calculateBtn').addEventListener('click', calculateAndSend);
-    document.getElementById('screenshotBtn').addEventListener('click', captureAndUpload);
-
-    // 等待Material Web组件加载完成后添加事件监听器
-    setTimeout(() => {
-        const currencySelect = document.getElementById('currency');
-        if (currencySelect && currencySelect.addEventListener) {
-            currencySelect.addEventListener('change', fetchExchangeRate);
+    function showPageAndInitialize() {
+        if (document.body.classList.contains('is-loading')) {
+            document.body.style.visibility = 'visible';
+            document.body.classList.remove('is-loading');
+            runInitializations();
         }
-    }, 100);
+    }
 
-    initSettings();
-    
-    // 添加设置按钮事件监听 - 适配侧边栏
-    document.getElementById('settingsToggle').addEventListener('click', openSettingsSidebar);
-    document.getElementById('closeSidebar').addEventListener('click', closeSettingsSidebar);
-    document.getElementById('sidebarOverlay').addEventListener('click', closeSettingsSidebar);
-    document.getElementById('saveSettings').addEventListener('click', saveSettings);
-    document.getElementById('resetSettings').addEventListener('click', resetSettings);
-    document.querySelector('.toggle-password').addEventListener('click', togglePasswordVisibility);
-
-    // ESC键关闭侧边栏
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            closeSettingsSidebar();
-        }
+    const keyComponents = [
+        'md-outlined-text-field',
+        'md-outlined-select',
+        'md-filled-button'
+    ];
+    const componentPromises = keyComponents.map(tag => customElements.whenDefined(tag));
+    Promise.race(componentPromises).then(() => {
+        clearTimeout(safetyTimeout);
+        showPageAndInitialize();
+    }).catch(error => {
+        clearTimeout(safetyTimeout);
+        showPageAndInitialize();
     });
+
+    const safetyTimeout = setTimeout(() => {
+        showPageAndInitialize();
+    }, 3000); // 3秒超时
+
+    function runInitializations() {
+        // 初始化主题
+        initTheme();
+        
+        // 初始化日期选择器
+        flatpickr.localize(flatpickr.l10ns.zh);
+        initializeDatePickers();
+        
+        // 初始化其他功能
+        fetchExchangeRate();
+        setDefaultTransactionDate();
+        
+        // 初始化图床设置
+        initSettings();
+        
+        // 统一添加所有事件监听器
+        document.getElementById('currency').addEventListener('change', fetchExchangeRate);
+        document.getElementById('calculateBtn').addEventListener('click', calculateAndSend);
+        document.getElementById('screenshotBtn').addEventListener('click', captureAndUpload);
+        document.getElementById('settingsToggle').addEventListener('click', openSettingsSidebar);
+        document.getElementById('closeSidebar').addEventListener('click', closeSettingsSidebar);
+        document.getElementById('sidebarOverlay').addEventListener('click', closeSettingsSidebar);
+        document.getElementById('saveSettings').addEventListener('click', saveSettings);
+        document.getElementById('resetSettings').addEventListener('click', resetSettings);
+        document.querySelector('.toggle-password').addEventListener('click', togglePasswordVisibility);
+        // ESC键关闭侧边栏
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeSettingsSidebar();
+            }
+        });
+    }
 });
 
 // 主题切换功能
@@ -192,7 +211,7 @@ function updateRemainingDays() {
  */
 function fetchExchangeRate() {
   const currency = document.getElementById('currency').value;
-  fetch(`https://777100.xyz/`)
+  fetch(`https://throbbing-sun-9eb6.b7483311.workers.dev`)
   .then(response => {
     if (!response.ok) {
       throw new Error(`HTTP error! 状态: ${response.status}`);
