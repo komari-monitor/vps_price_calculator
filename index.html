@@ -286,10 +286,12 @@
                     </div>
                 </div>
 
-                <md-filled-button id="calculateBtn" class="calculate-button">
-                    <i class="fas fa-calculator" slot="icon"></i>
-                    计算剩余价值
-                </md-filled-button>
+                <div class="button-group">
+                    <md-filled-button id="calculateBtn" class="calculate-button">
+                        <i class="fas fa-calculator" slot="icon"></i>
+                        计算剩余价值
+                    </md-filled-button>
+                </div>
             </section>
 
             <section id="calcResult" class="result md-elevation--2">
@@ -298,9 +300,14 @@
                         <i class="fas fa-chart-line"></i>
                         计算结果
                     </h2>
-                    <md-icon-button id="screenshotBtn" title="截图上传到图床">
-                        <i class="fas fa-camera"></i>
-                    </md-icon-button>
+                    <div class="result-header-actions">
+                        <md-icon-button id="copyLinkBtn" title="复制链接">
+                            <i class="fas fa-link"></i>
+                        </md-icon-button>
+                        <md-icon-button id="screenshotBtn" title="截图上传到图床">
+                            <i class="fas fa-camera"></i>
+                        </md-icon-button>
+                    </div>
                 </div>
                 <div class="result-grid">
                     <md-card class="result-item">
