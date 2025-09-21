@@ -1,6 +1,6 @@
 # 剩余价值计算器 V4
 
-> 本仓库基于 fork： https://github.com/realnovicedev/vps_calculator_docker。
+> 本仓库基于 fork： https://github.com/realnovicedev/vps_calculator_docker
 
 > 一个基于 Material Design 3 的现代化剩余价值计算器，帮助用户精确计算主机、域名等周期性服务的剩余价值。
 
