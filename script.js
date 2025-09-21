@@ -42,15 +42,14 @@ function normalizeCurrencyCode(input, region = '') {
     const s = String(input || '').trim().toUpperCase();
     // 常见映射
     if (!s || s === 'CNY' || s === 'RMB' || s.includes('人民币') || s === '￥' || s === '¥') {
-        // 处理日元：若仅为 ¥，根据地区尝试判定；默认按 CNY
-        if ((s === '¥' || s === '￥') && /JP|🇯🇵/.test(String(region))) return 'JPY';
+        // 统一将 ¥/￥ 视为人民币，除非明确写明 JPY/日元/円
         return 'CNY';
     }
     if (s === '$' || s.includes('美元') || s === 'USD' || s === 'US$') return 'USD';
     if (s.includes('HKD') || s.includes('港') || s.includes('HK$')) return 'HKD';
     if (s.includes('EUR') || s.includes('欧')) return 'EUR';
     if (s.includes('GBP') || s.includes('英镑') || s.includes('£')) return 'GBP';
-    if (s.includes('JPY') || s.includes('日')) return 'JPY';
+    if (s.includes('JPY') || s.includes('日') || s.includes('円')) return 'JPY';
     if (s.includes('AUD')) return 'AUD';
     if (s.includes('CAD')) return 'CAD';
     if (s.includes('SGD')) return 'SGD';
