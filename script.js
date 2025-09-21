@@ -47,14 +47,14 @@ function normalizeCurrencyCode(input, region = '') {
     }
     if (s === '$' || s.includes('美元') || s === 'USD' || s === 'US$') return 'USD';
     if (s.includes('HKD') || s.includes('港') || s.includes('HK$')) return 'HKD';
-    if (s.includes('EUR') || s.includes('欧')) return 'EUR';
+    if (s.includes('EUR') || s.includes('欧') || s.includes('€')) return 'EUR';
     if (s.includes('GBP') || s.includes('英镑') || s.includes('£')) return 'GBP';
     if (s.includes('JPY') || s.includes('日') || s.includes('円')) return 'JPY';
-    if (s.includes('AUD')) return 'AUD';
-    if (s.includes('CAD')) return 'CAD';
-    if (s.includes('SGD')) return 'SGD';
-    if (s.includes('KRW') || s.includes('韩')) return 'KRW';
-    if (s.includes('TWD') || s.includes('台') || s.includes('新台币')) return 'TWD';
+    if (s.includes('AUD') || s.includes('AU$') || s.includes('A$')) return 'AUD';
+    if (s.includes('CAD') || s.includes('CA$') || s.includes('C$')) return 'CAD';
+    if (s.includes('SGD') || s.includes('SG$') || s.includes('S$')) return 'SGD';
+    if (s.includes('KRW') || s.includes('韩') || s.includes('₩')) return 'KRW';
+    if (s.includes('TWD') || s.includes('台') || s.includes('新台币') || s.includes('NT$') || s.includes('NTD')) return 'TWD';
     return s; // 已经是币种代码时直接返回
 }
 
