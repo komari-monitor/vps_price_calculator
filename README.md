@@ -1,13 +1,14 @@
 # 剩余价值计算器 V4
 
+> 本仓库基于 fork： https://github.com/realnovicedev/vps_calculator_docker。
+
 > 一个基于 Material Design 3 的现代化剩余价值计算器，帮助用户精确计算主机、域名等周期性服务的剩余价值。
 
 ## 🚀 在线体验
 
 | 演示地址 | 状态 |
 |---------|------|
-| [主站点](https://) | 暂时关闭 |
-| [Cloudflare Pages](https://vps-calculator-docker.pages.dev/) | ✅ 可用 |
+| [Cloudflare Pages](https://vps-price-calculator.pages.dev/) | ✅ 可用 |
 
 ## 📱 界面预览
 
@@ -61,7 +62,7 @@ docker run -d --name=jsq -p 8089:80 bobby567/calculator:latest
 
 | 项目 | 链接 |
 |------|------|
-| 🏠 **本项目** | [GitHub](https://github.com/realnovicedev/vps_calculator_docker) |
+| 🏠 **本项目** | [GitHub](https://github.com/komari-monitor/vps_price_calculator) |
 | 🌱 **原项目** | [vps_surplus_value](https://github.com/Tomzhao1016/vps_surplus_value) |
 | 📖 **Material Web** | [官方文档](https://material-web.dev/) |
 
@@ -76,4 +77,4 @@ docker run -d --name=jsq -p 8089:80 bobby567/calculator:latest
 
 ## 📄 许可协议
 
-本项目遵循原项目的开源许可协议。
+本项目采用 MIT 许可，详见仓库中的 `LICENSE` 文件。并尊重上游项目的原始许可与贡献者。

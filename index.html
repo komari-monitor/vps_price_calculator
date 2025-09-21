@@ -150,6 +150,16 @@
                 <i class="fas fa-calculator"></i>
                 剩余价值计算器
             </h1>
+            <div class="tab-bar" role="tablist" aria-label="主功能切换">
+                <md-text-button id="tabCalc" class="tab active" aria-selected="true" role="tab">
+                    <i class="fas fa-calculator" slot="icon"></i>
+                    计算器
+                </md-text-button>
+                <md-text-button id="tabKomari" class="tab" aria-selected="false" role="tab">
+                    <i class="fas fa-server" slot="icon"></i>
+                    Komari 统计
+                </md-text-button>
+            </div>
         </header>
         
         <main role="main">
@@ -365,6 +375,44 @@
                         </div>
                     </md-card>
                 </div>
+            </section>
+
+            <!-- Komari 统计 -->
+            <section id="komariSection" class="komari-section md-elevation--2" style="display:none;">
+                <div class="result-header">
+                    <h2 class="md-typescale-headline-medium">
+                        <i class="fas fa-server"></i>
+                        Komari 统计
+                    </h2>
+                    <div class="result-header-actions">
+                        <md-icon-button id="komariCopyLinkBtn" title="复制Komari分享链接">
+                            <i class="fas fa-link"></i>
+                        </md-icon-button>
+                    </div>
+                </div>
+                <div class="input-group flex justify-between">
+                    <div class="form-group">
+                        <md-outlined-text-field
+                            id="komariAddress"
+                            label="Komari 地址"
+                            type="url"
+                            enterkeyhint="go"
+                            inputmode="url"
+                            placeholder="https://komari.example.com"
+                            supporting-text="请打开设置-站点-允许跨域请求">
+                            <i class="fas fa-link" slot="leading-icon"></i>
+                        </md-outlined-text-field>
+                    </div>
+                    <div class="form-group">
+                        <md-filled-button id="fetchKomariBtn" class="calculate-button">
+                            <i class="fas fa-download" slot="icon"></i>
+                            获取节点
+                        </md-filled-button>
+                    </div>
+                </div>
+                <div id="komariStatus" class="komari-status help-text"></div>
+                <div id="komariTotals" class="komari-status"></div>
+                <div id="komariGrid" class="komari-grid"></div>
             </section>
         </main>
         

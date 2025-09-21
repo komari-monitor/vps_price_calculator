@@ -19,6 +19,100 @@ const imgHost = {
     copyFormat: "markdown" // 默认为URL格式
 };
 
+// 汇率缓存（用于 Komari CNY 换算）
+let __ratesCache = null; // { rates: {...}, timestamp: number }
+async function ensureRates() {
+    if (__ratesCache && Date.now() - __ratesCache.timestamp < 30 * 60 * 1000) {
+        return __ratesCache.rates;
+    }
+    try {
+        const res = await fetch(`https://throbbing-sun-9eb6.b7483311.workers.dev`);
+        if (!res.ok) throw new Error('rate http error');
+        const data = await res.json();
+        if (!data || !data.rates) throw new Error('rate format error');
+        __ratesCache = { rates: data.rates, timestamp: Date.now() };
+        return __ratesCache.rates;
+    } catch (e) {
+        console.warn('获取汇率失败（CNY换算将不可用）', e);
+        return null;
+    }
+}
+
+function normalizeCurrencyCode(input, region = '') {
+    const s = String(input || '').trim().toUpperCase();
+    // 常见映射
+    if (!s || s === 'CNY' || s === 'RMB' || s.includes('人民币') || s === '￥' || s === '¥') {
+        // 处理日元：若仅为 ¥，根据地区尝试判定；默认按 CNY
+        if ((s === '¥' || s === '￥') && /JP|🇯🇵/.test(String(region))) return 'JPY';
+        return 'CNY';
+    }
+    if (s === '$' || s.includes('美元') || s === 'USD' || s === 'US$') return 'USD';
+    if (s.includes('HKD') || s.includes('港') || s.includes('HK$')) return 'HKD';
+    if (s.includes('EUR') || s.includes('欧')) return 'EUR';
+    if (s.includes('GBP') || s.includes('英镑') || s.includes('£')) return 'GBP';
+    if (s.includes('JPY') || s.includes('日')) return 'JPY';
+    if (s.includes('AUD')) return 'AUD';
+    if (s.includes('CAD')) return 'CAD';
+    if (s.includes('SGD')) return 'SGD';
+    if (s.includes('KRW') || s.includes('韩')) return 'KRW';
+    if (s.includes('TWD') || s.includes('台') || s.includes('新台币')) return 'TWD';
+    return s; // 已经是币种代码时直接返回
+}
+
+function convertToCny(rates, code, amount) {
+    if (!rates || !code || typeof amount !== 'number') return null;
+    const origin = rates[code];
+    const cny = rates['CNY'];
+    if (!origin || !cny) return null;
+    return (cny / origin) * amount;
+}
+
+// 将 Komari 的天数周期映射为计算器月周期（链接参数）
+function mapDaysToMonths(days) {
+    const table = { 30:1, 90:3, 180:6, 365:12, 730:24, 1095:36, 1460:48, 1825:60 };
+    if (table[days]) return table[days];
+    // 尝试按 30 天近似
+    const approx = Math.max(1, Math.min(60, Math.round(days / 30)));
+    // 仅接受常见档位，否则返回 0 表示未知
+    const allowed = new Set([1,3,6,12,24,36,48,60]);
+    return allowed.has(approx) ? approx : 0;
+}
+
+function mapCurrencyToCalculator(code) {
+    const supported = new Set(['USD','AUD','CAD','CNY','EUR','GBP','HKD','JPY','KRW','SGD','TWD']);
+    const up = String(code || '').toUpperCase();
+    return supported.has(up) ? up : 'CNY';
+}
+
+function buildShareUrlFromNode(node) {
+    const base = window.location.origin + window.location.pathname;
+    const params = new URLSearchParams();
+    const code = mapCurrencyToCalculator(normalizeCurrencyCode(node.currency, node.region || ''));
+    if (code) params.set('currency', code);
+    const price = typeof node.price === 'number' && node.price > 0 ? node.price : '';
+    if (price) params.set('price', String(price));
+    const months = mapDaysToMonths(Number(node.billing_cycle) || 0);
+    if (months) params.set('cycle', String(months));
+    if (node.expired_at) {
+        const d = new Date(node.expired_at);
+        if (!isNaN(d.getTime())) {
+            const y = d.getFullYear();
+            const m = String(d.getMonth()+1).padStart(2,'0');
+            const day = String(d.getDate()).padStart(2,'0');
+            params.set('due', `${y}${m}${day}`);
+        }
+    }
+    return `${base}?${params.toString()}`;
+}
+
+function buildKomariShareUrl(addr) {
+    const base = window.location.origin + window.location.pathname;
+    const params = new URLSearchParams();
+    params.set('page', 'komari');
+    if (addr) params.set('addr', addr);
+    return `${base}?${params.toString()}`;
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     
     function showPageAndInitialize() {
@@ -62,11 +156,43 @@ document.addEventListener('DOMContentLoaded', function() {
         // 初始化图床设置
         initSettings();
         
-        // 统一添加所有事件监听器
+    // 统一添加所有事件监听器
         document.getElementById('currency').addEventListener('change', fetchExchangeRate);
         document.getElementById('calculateBtn').addEventListener('click', calculateAndSend);
         document.getElementById('copyLinkBtn').addEventListener('click', copyLink);
         document.getElementById('screenshotBtn').addEventListener('click', captureAndUpload);
+    // Tab 切换
+    setupTabs();
+    // Komari
+    const fetchBtn = document.getElementById('fetchKomariBtn');
+    if (fetchBtn) fetchBtn.addEventListener('click', fetchKomariNodes);
+        const addrInput = document.getElementById('komariAddress');
+        if (addrInput) {
+            addrInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    fetchKomariNodes();
+                }
+            });
+        }
+        const komariCopyBtn = document.getElementById('komariCopyLinkBtn');
+        if (komariCopyBtn) {
+            komariCopyBtn.addEventListener('click', () => {
+                const addr = document.getElementById('komariAddress')?.value || '';
+                const url = buildKomariShareUrl(addr.trim());
+                copyToClipboard(url);
+                showNotification('Komari 分享链接已复制', 'success');
+            });
+        }
+
+        // 根据 URL 参数 page 自动切换 Tab（默认 calculator）
+        try {
+            const pageParam = new URLSearchParams(window.location.search).get('page');
+            if (pageParam && String(pageParam).toLowerCase() === 'komari') {
+                const tabKomari = document.getElementById('tabKomari');
+                tabKomari && tabKomari.click();
+            }
+        } catch {}
 
     // 等待Material Web组件加载完成后添加事件监听器
         setTimeout(() => {
@@ -96,11 +222,43 @@ document.addEventListener('DOMContentLoaded', function() {
     populateFormFromUrlAndCalc();
 });
 
+// 顶部 Tab 切换
+function setupTabs() {
+    const tabCalc = document.getElementById('tabCalc');
+    const tabKomari = document.getElementById('tabKomari');
+    const calcSection = document.querySelector('section.calculator');
+    const resultSection = document.getElementById('calcResult');
+    const komariSection = document.getElementById('komariSection');
+
+    function activate(tab) {
+        if (!tabCalc || !tabKomari) return;
+        tabCalc.classList.toggle('active', tab === 'calc');
+        tabKomari.classList.toggle('active', tab === 'komari');
+
+        if (tab === 'calc') {
+            calcSection.style.display = '';
+            resultSection.style.display = '';
+            komariSection.style.display = 'none';
+        } else {
+            calcSection.style.display = 'none';
+            resultSection.style.display = 'none';
+            komariSection.style.display = '';
+        }
+    }
+
+    tabCalc && tabCalc.addEventListener('click', () => activate('calc'));
+    tabKomari && tabKomari.addEventListener('click', () => activate('komari'));
+}
+
 function populateFormFromUrlAndCalc() {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.toString() === '') {
         return; // No params, use default behavior
     }
+
+    // 如果仅包含 page=komari 等与计算器无关的参数，不要触发计算
+    const pageParam = (urlParams.get('page') || '').toLowerCase();
+    const hasCalcParams = urlParams.has('price') && urlParams.has('cycle') && urlParams.has('due');
 
     if (urlParams.has('currency')) {
         document.getElementById('currency').value = urlParams.get('currency');
@@ -125,10 +283,29 @@ function populateFormFromUrlAndCalc() {
         if (urlParams.has('rate')) {
             document.getElementById('customRate').value = urlParams.get('rate');
         }
-        setTimeout(() => {
-             calculateAndSend();
-        }, 100);
+        // 仅在必要参数齐全时自动计算
+        if (hasCalcParams) {
+            setTimeout(() => {
+                calculateAndSend();
+            }, 100);
+        }
     });
+
+    // Komari: 支持 addr 参数自动填充并获取
+    if (pageParam === 'komari' && urlParams.has('addr')) {
+        const addr = urlParams.get('addr');
+        const addrInput = document.getElementById('komariAddress');
+        if (addrInput) {
+            addrInput.value = addr;
+            // 若页面已切到 Komari，则自动获取
+            setTimeout(() => {
+                const tabKomari = document.getElementById('tabKomari');
+                if (tabKomari && tabKomari.classList.contains('active')) {
+                    fetchKomariNodes();
+                }
+            }, 150);
+        }
+    }
 }
 
 // 主题切换功能
@@ -891,4 +1068,261 @@ function copyLink() {
     url.search = params.toString();
 
     copyToClipboard(url.toString());
+}
+
+// ---------- Komari 统计 ----------
+async function fetchKomariNodes() {
+    const addrInput = document.getElementById('komariAddress');
+    const statusEl = document.getElementById('komariStatus');
+    const totalsEl = document.getElementById('komariTotals');
+    const grid = document.getElementById('komariGrid');
+    const raw = (addrInput.value || '').trim();
+    if (!raw) {
+        showNotification('请输入 Komari 地址', 'error');
+        return;
+    }
+    const base = normalizeBaseUrl(raw);
+    statusEl.textContent = '请求中… 如失败可能是浏览器的 CORS 限制。';
+    grid.innerHTML = '';
+    totalsEl.textContent = '';
+
+    const body = {
+        jsonrpc: '2.0',
+        id: Date.now(),
+        method: 'common:getNodes',
+        params: {}
+    };
+
+    // 先试 https，再 http
+    const candidates = base.startsWith('http') ? [base] : [`https://${base}`, `http://${base}`];
+    let resp, urlTried = '';
+    for (const b of candidates) {
+        urlTried = `${b.replace(/\/$/, '')}/api/rpc2`;
+        try {
+            resp = await fetch(urlTried, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            if (resp.ok) break;
+        } catch (e) {
+            // try next
+        }
+    }
+
+    if (!resp || !resp.ok) {
+        statusEl.textContent = '请求失败。若服务可用，请从服务器端开启允许跨域请求或通过反向代理。';
+        return;
+    }
+
+    let data;
+    try { data = await resp.json(); } catch { data = null; }
+    if (!data || !data.result || typeof data.result !== 'object') {
+        statusEl.textContent = '返回数据格式不符合预期。';
+        return;
+    }
+
+    const nodes = Object.values(data.result);
+    if (!nodes.length) {
+        statusEl.textContent = '没有节点数据。';
+        return;
+    }
+
+    // 渲染
+    statusEl.textContent = `共 ${nodes.length} 个节点`;
+            const now = new Date();
+            grid.innerHTML = '';
+                const rates = await ensureRates();
+            if (!rates) {
+                showNotification('汇率获取失败，CNY换算将显示为 “—”', 'warning');
+            }
+        let totalCny = 0;
+        const totalsOriginal = {}; // 原币种合计：{ USD: 123, HKD: 45, ... }
+    for (const n of nodes) {
+        // 记录来源地址以便构造分享链接
+        n.__source_addr = normalizeBaseUrl(raw);
+            const card = buildKomariCard(n, now, rates);
+        grid.appendChild(card);
+                // 统计总剩余价值（CNY）
+                        const { currency = '￥', price = 0, billing_cycle = 30, expired_at = '' } = n || {};
+                const info = parseExpiryStatus(expired_at, now);
+                const code = normalizeCurrencyCode(currency, n.region || '');
+                let remainingOriginal = 0;
+                if (price === -1) {
+                    remainingOriginal = 0; // 免费
+                } else if (typeof price === 'number') {
+                    if (info.longTerm) {
+                        remainingOriginal = Math.max(0, price);
+                    } else if (price > 0) {
+                        const daily = billing_cycle > 0 ? price / billing_cycle : 0;
+                        remainingOriginal = info.daysRemaining > 0 ? daily * info.daysRemaining : 0;
+                    }
+                }
+                        if (!totalsOriginal[code]) totalsOriginal[code] = 0;
+                        totalsOriginal[code] += remainingOriginal;
+                const cnyVal = convertToCny(rates, code, remainingOriginal);
+                totalCny += cnyVal || 0;
+    }
+
+                    // 渲染总价值：￥XXX【换算CNY后的价格】(JPY 97.00 + USD 3.30 + HKD 54.36)【原始】
+                    const cnyPart = rates ? `￥${totalCny.toFixed(2)}` : `—`;
+                    const originalParts = [];
+                        for (const [code, val] of Object.entries(totalsOriginal)) {
+                            if (val > 0.0001) originalParts.push(`${code} ${val.toFixed(2)}`);
+                        }
+                    const originalsStr = originalParts.length ? ` (${originalParts.join(' + ')})` : '';
+                    totalsEl.textContent = `总剩余价值：${cnyPart}${originalsStr}`;
+}
+
+function normalizeBaseUrl(input) {
+    let s = input.trim();
+    if (s.endsWith('/')) s = s.slice(0, -1);
+    return s;
+}
+
+function buildKomariCard(node, now = new Date(), rates = null) {
+    const {
+        name = '-',
+        region = '',
+        price = 0,
+        billing_cycle = 30,
+        currency = '￥',
+        expired_at = '',
+                updated_at = ''
+    } = node || {};
+
+    const expiryInfo = parseExpiryStatus(expired_at, now);
+    const remainingDays = expiryInfo.daysRemaining;
+
+        const code = normalizeCurrencyCode(currency, region);
+        // 价格含义：>0 为周期总价；0 未设置；-1 免费
+        const isFree = price === -1;
+        const isUnset = price === 0;
+        const hasPrice = typeof price === 'number' && price > 0;
+        const daily = hasPrice && billing_cycle > 0 ? price / billing_cycle : 0;
+        let remainingValue = 0; // 原币种
+        if (isFree) {
+            remainingValue = 0;
+        } else if (expiryInfo.longTerm) {
+            // 长期有效：剩余价值 = 当前价值（按用户要求，取当前周期价）
+            remainingValue = hasPrice ? price : 0;
+        } else if (hasPrice) {
+            remainingValue = remainingDays > 0 ? daily * remainingDays : 0;
+        }
+        const remainingValueCny = convertToCny(rates, code, remainingValue);
+
+    const mdCard = document.createElement('md-card');
+    mdCard.className = 'komari-card md-elevation--1';
+
+    // 标题行
+    const title = document.createElement('div');
+    title.className = 'title';
+        title.innerHTML = `
+                <span class="md-typescale-title-small">${region ? `${escapeHtml(region)} ` : ''}${escapeHtml(name)}</span>
+                <span class="badges">
+                    <span class="badge ${badgeClass(expiryInfo)}" title="${expiryInfo.tooltip}">${expiryInfo.label}</span>
+                    <span class="badge ${remainingValue > 0 ? 'ok' : (isFree ? 'ok' : 'muted')}" title="剩余价值">
+                        ${isFree ? '免费' : `${escapeHtml(currency)}${remainingValue.toFixed(2)}`}
+                    </span>
+                </span>
+        `;
+
+    // 元信息和价值
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    let priceText;
+        if (isFree) priceText = '免费';
+        else if (isUnset) priceText = '未设置';
+        else priceText = `${currency}${price} / ${billing_cycle}天`;
+
+        const valueText = isFree ? '免费' : (hasPrice ? `${currency}${remainingValue.toFixed(2)}` : '—');
+        const dailyText = isFree ? '免费' : (hasPrice ? `${currency}${daily.toFixed(4)}/天` : '—');
+        const cnyText = remainingValueCny != null ? `￥${remainingValueCny.toFixed(2)}` : '—';
+
+    meta.innerHTML = `
+        <div class="row"><div class="price"><strong>价格</strong> ${priceText}</div><div class="value"><strong>剩余价值</strong> ${valueText}</div></div>
+        <div class="row"><div><strong>到期</strong> ${expiryInfo.display}</div><div><strong>日均</strong> ${dailyText}</div></div>
+        <div class="row single value"><strong>换算剩余价格</strong> ${cnyText}</div>
+    `;
+
+    mdCard.appendChild(title);
+    mdCard.appendChild(meta);
+
+    // 复制按钮（右下角）
+    const copyBtn = document.createElement('md-icon-button');
+    copyBtn.className = 'copy-btn';
+    copyBtn.title = '复制计算器分享链接';
+    copyBtn.innerHTML = '<i class="fas fa-copy"></i>';
+    copyBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const url = buildShareUrlFromNode(node);
+        copyToClipboard(url);
+        showNotification('计算器分享链接已复制', 'success');
+    });
+    mdCard.appendChild(copyBtn);
+    return mdCard;
+}
+
+function parseExpiryStatus(expired_at, now = new Date()) {
+    // 规则：
+    // - 公元 0002 年以前 => 显示 未设置到期时间
+    // - 150 年之后 => 显示 长期有效
+    // 其余：计算剩余天数
+    const invalid = { label: '未设置到期时间', tooltip: '未设置到期时间', display: '未设置', daysRemaining: 0 };
+    if (!expired_at) return invalid;
+    const d = new Date(expired_at);
+    if (isNaN(d.getTime())) return invalid;
+    const year = d.getUTCFullYear();
+    if (year < 2) return invalid;
+    const diffYears = (d.getTime() - now.getTime()) / (365.25 * 24 * 3600 * 1000);
+    if (diffYears > 150) {
+        return { label: '长期有效', tooltip: '到期时间超过 150 年', display: '长期有效', daysRemaining: 36525, longTerm: true };
+    }
+
+    // 正常计算天数（向下取整）
+    const d0 = new Date(d); d0.setHours(0,0,0,0);
+    const n0 = new Date(now); n0.setHours(0,0,0,0);
+    const days = Math.max(0, Math.floor((d0 - n0) / (24*3600*1000)));
+    const display = formatDate(d0);
+    const label = days > 0 ? `${days} 天` : '已过期';
+    const tooltip = days > 0 ? `剩余 ${days} 天` : '到期时间在过去';
+    return { label, tooltip, display, daysRemaining: days, longTerm: false };
+}
+
+function badgeClass(info) {
+    if (!info) return 'muted';
+    if (info.display === '未设置' || info.label === '未设置到期时间') return 'muted';
+    if (info.display === '长期有效') return 'ok';
+    if (/已过期/.test(info.label)) return 'warn';
+    return 'ok';
+}
+
+function formatDate(d) {
+    if (!(d instanceof Date)) return '-';
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const day = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`;
+}
+
+function formatDateTime(s) {
+    if (!s) return '-';
+    const d = new Date(s);
+    if (isNaN(d.getTime())) return '-';
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const day = String(d.getDate()).padStart(2,'0');
+    const hh = String(d.getHours()).padStart(2,'0');
+    const mm = String(d.getMinutes()).padStart(2,'0');
+    return `${y}-${m}-${day} ${hh}:${mm}`;
+}
+
+function escapeHtml(str) {
+    if (str == null) return '';
+    return String(str)
+        .replaceAll('&','&amp;')
+        .replaceAll('<','&lt;')
+        .replaceAll('>','&gt;')
+        .replaceAll('"','&quot;')
+        .replaceAll("'",'&#39;');
 }
